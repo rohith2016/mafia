@@ -13,7 +13,7 @@ $(document).ready(function() {
 			for(var i=0; i<messages.length; i++) {
 				html += '<b>' + (messages[i].username ? messages[i].username : 'Server') + ': </b>';
 				html += messages[i].message + '<br />';
-				console.log(messages[i]);
+				//console.log(messages[i]);
 			}
 			content.innerHTML = html;
 			$("#content").scrollTop($("#content")[0].scrollHeight);
