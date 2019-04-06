@@ -58,12 +58,14 @@ function dayLoop(duration, ticks) {
         io.socket.emit('header', { message: 'Night ' + nightCount });
         io.sockets.emit('announcement', { message: 'It is now nighttime' });
 
-        io.sockets.clients().forEach(function (socket) {
-            var clientRooms = io.sockets.manager.roomClients[socket.id];
-            if (!clientRooms['/mafia']) {
-                socket.emit('disableField', true);
-            }
-        });
+        io.sockets.in('mafia').emit('clearTargets');
+
+		io.sockets.clients('village').forEach(function (socket) {
+			socket.emit('disableField', true);
+			socket.emit('displayVote', false);
+			io.sockets.in('mafia').emit('validTarget', socket.id);
+		});
+
 
         setTimeout(nightLoop, 1000, nightDuration, 0);
         state = 1;
@@ -80,6 +82,9 @@ function nightLoop(duration, ticks) {
         io.sockets.emit('header', { message: 'Day ' + dayCount });
         io.sockets.emit('announcement', { message: 'It is now daytime' });
         io.sockets.emit('disableField', false);
+        io.sockets.clients().forEach(function (socket) {
+			io.sockets.emit('validTarget', socket.id);
+		});
         setTimeout(dayLoop, 1000, dayDuration, 0);
         state = 2;
     }
@@ -91,6 +96,7 @@ function initialize() {
     if (dayStart) {
         dayLoop(0, 0);
     } else {
+        io.sockets.in('mafia').emit('displayVote', true);
         nightLoop(0, 0);
     }
 }
@@ -105,11 +111,19 @@ function startingCountdown(duration, ticks) {
         initialize();
     }
 }
-
+//var room = "room 1";
 module.exports = {
     checkNumPlayers: function () {
-        var numClients = io.sockets.clients().length;
+        var numClients = io.sockets.clients().length; //=0
+        // io.to('room1').clients((error, clients)=>{
+        //     if(error) throw error;
+        //     numClients = clients.length;
+        //     console.log('herhe');
+        // })
+        //var numClients = Object.keys(socket.room).length;
         var reqPlayers = playerRoles.length;
+        console.log(reqPlayers, numClients);
+
         if (numClients >= reqPlayers) {
             io.sockets.emit('announcement', { message: 'Required number of players reached' });
             setTimeout(startingCountdown, 1000, 10, 0);
@@ -117,6 +131,16 @@ module.exports = {
             io.sockets.emit('announcement', { message: 'Waiting on ' + (reqPlayers - numClients) + ' more players' });
         }
         io.sockets.emit('header', { message: 'Pre-game Lobby' });
+    },
+    filterMessage: function (socket, data) {
+        if (state == 1) {
+            var clientRooms = io.sockets.manager.roomClients[socket.id];
+            if (clientRooms['/mafia']) {
+                io.sockets.in('mafia').emit('message', data);
+            }
+        } else {
+            io.sockets.emit('message', data);
+        }
     },
     state: function () {
         return state;

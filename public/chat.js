@@ -1,16 +1,16 @@
-$(document).ready(function() {
+$(document).ready(function () {
 	var messages = [];
-	var socket = io.connect('http://'+location.host);
+	var socket = io.connect('http://' + location.host);
 	var field = document.getElementById("field");
 	var sendButton = document.getElementById("send");
 	var content = document.getElementById("content");
 	var name = document.getElementById("name");
 
- 	socket.on('message', function (data) {
-		if(data.message) {
+	socket.on('message', function (data) {
+		if (data.message) {
 			messages.push(data);
 			var html = '';
-			for(var i=0; i<messages.length; i++) {
+			for (var i = 0; i < messages.length; i++) {
 				html += '<b>' + (messages[i].username ? messages[i].username : 'Server') + ': </b>';
 				html += messages[i].message + '<br />';
 				//console.log(messages[i]);
@@ -35,14 +35,37 @@ $(document).ready(function() {
 		send.disabled = data;
 	});
 
-     $("#field").keyup(function(e) {
-        if(e.keyCode == 13) {
-            sendMessage();
-        }
-    });
+	socket.on('displayVote', function (data) {
+		if (data) {
+			selectArea.style.display = 'inline';
+		} else {
+			selectArea.style.display = 'none';
+		}
+	});
 
- 	sendButton.onclick = sendMessage = function() {
-		if(name.value == ""){
+	var validTargets = [];
+	socket.on('validTarget', function (data) {
+		validTargets.push(data);
+		var html = '';
+		for (var i = 0; i < validTargets.length; i++) {
+			html += '<option>' + validTargets[i] + '</option>';
+		}
+		select.innerHTML = html;
+	});
+
+	socket.on('clearTargets', function () {
+		validTargets = [];
+		select.innerHTML = '';
+	});
+
+	$("#field").keyup(function (e) {
+		if (e.keyCode == 13) {
+			sendMessage();
+		}
+	});
+
+	sendButton.onclick = sendMessage = function () {
+		if (name.value == "") {
 			alert("Enter a name.");
 		} else {
 			var text = field.value;
@@ -50,4 +73,8 @@ $(document).ready(function() {
 			field.value = "";
 		}
 	};
+
+	vote.onclick = function() {
+		socket.emit('vote', { message: select.value });
+	}
 });

@@ -14,12 +14,13 @@ app.get("/", function (req, res) {
 app.use(express.static(__dirname + '/public'));
 
 io = require('socket.io').listen(app.listen(port));
-io.set('log level', 2);
+//io.set('log level', 3);
 console.log("Listening on port " + port);
 
 io.sockets.on('connection', function (socket) {
+    socket.join('room1');
 	socket.emit('message', { message: 'Welcome to the lobby.' });
-	io.sockets.emit('message', { message: 'A new client has connected.' });
+	socket.broadcast.emit('message', { message: 'A new client has connected.' });
 
 	if(!game.state()){
 		game.checkNumPlayers();
@@ -37,6 +38,15 @@ io.sockets.on('connection', function (socket) {
     });
 
 	socket.on('send', function (data) {
-		io.sockets.emit('message', data);
+		if (!game.state()) {
+			io.sockets.emit('message', data);
+		} else {
+			game.filterMessage(socket, data);
+        }
+    });
+    
+    socket.on('vote', function (data) {
+		//pass the vote along
 	});
+
 });
