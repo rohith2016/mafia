@@ -40,7 +40,7 @@ function assignRoles() {
         if (i <= playerRoles.length - 1) {
             players[i].join(playerRoles[i].role);
             players[i].join(playerRoles[i].group);
-            players[i].emit('message', { message: 'You have been assigned the role of ' + playerRoles[i].role + '. You are affiliated with the ' + playerRoles[i].group + '.' });
+            players[i].emit('message', { message: 'You have been assigned the role of ' + playerRoles[i].role + '. You are part of the ' + playerRoles[i].group + '.' });
         } else {
             players[i].join('spectator');
             players[i].emit('message', { message: 'Since the roles are full, you have been assigned the role of spectator.' });
@@ -63,7 +63,7 @@ function dayLoop(duration, ticks) {
 		io.sockets.clients('village').forEach(function (socket) {
 			socket.emit('disableField', true);
 			socket.emit('displayVote', false);
-			io.sockets.in('mafia').emit('validTarget', socket.id);
+			io.sockets.in('mafia').emit('validTarget', socket.game_nickname);
 		});
 
 
@@ -82,9 +82,15 @@ function nightLoop(duration, ticks) {
         io.sockets.emit('header', { message: 'Day ' + dayCount });
         io.sockets.emit('announcement', { message: 'It is now daytime' });
         io.sockets.emit('disableField', false);
-        io.sockets.clients().forEach(function (socket) {
-			io.sockets.emit('validTarget', socket.id);
-		});
+        io.sockets.emit('displayVote', true);
+        io.sockets.emit('clearTargets');
+        // asynchronus idiot here 
+        io.sockets.clients((error, clients)=>{
+            if(error) throw error;
+            clients.forEach(function (socket) {
+                io.sockets.emit('validTarget', socket.game_nickname);
+            });
+        })
         setTimeout(dayLoop, 1000, dayDuration, 0);
         state = 2;
     }
@@ -101,34 +107,42 @@ function initialize() {
     }
 }
 
+var startingCountdownTimer = null;
+
 function startingCountdown(duration, ticks) {
     ticksLeft = duration - ticks;
     if (ticksLeft) {
         io.sockets.emit('announcement', { message: 'Game starting in ' + ticksLeft + ' second(s)' });
-        setTimeout(startingCountdown, 1000, duration, ticks + 1);
+       startingCountdownTimer= setTimeout(startingCountdown, 1000, duration, ticks + 1);
     } else {
         io.sockets.emit('announcement', { message: 'Game starting now' });
         initialize();
     }
 }
-//var room = "room 1";
+
 module.exports = {
     checkNumPlayers: function () {
-        var numClients = io.sockets.clients().length; //=0
-        // io.to('room1').clients((error, clients)=>{
-        //     if(error) throw error;
-        //     numClients = clients.length;
-        //     console.log('herhe');
-        // })
-        //var numClients = Object.keys(socket.room).length;
+        var validClients=null;
+        var lengthy=null;
+        io.sockets.clients((error,clients)=>{
+            if(error) throw error;
+            lengthy= clients.length;
+            console.log(lengthy);
+            validClients=clients.filter(function(socket){
+                return (socket.game_nickname);
+            })
+        });
+
+        var numClients = lengthy;//validClients.length; //=0
         var reqPlayers = playerRoles.length;
-        console.log(reqPlayers, numClients);
+        console.log(reqPlayers, lengthy);
 
         if (numClients >= reqPlayers) {
             io.sockets.emit('announcement', { message: 'Required number of players reached' });
-            setTimeout(startingCountdown, 1000, 10, 0);
+            startingCountdownTimer= setTimeout(startingCountdown, 1000, 10, 0);
         } else {
             io.sockets.emit('announcement', { message: 'Waiting on ' + (reqPlayers - numClients) + ' more players' });
+            clearTimeout(startingCountdownTimer);
         }
         io.sockets.emit('header', { message: 'Pre-game Lobby' });
     },
