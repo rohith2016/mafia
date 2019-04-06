@@ -1,4 +1,4 @@
-var state = 0; //0: not yet started, 1: day 2: night
+var state = 0; //0: not yet started, 1: day 2: night 3:game over
 var dayStart = false;
 var dayDuration = 60;
 var nightDuration = 30;
@@ -31,17 +31,22 @@ function shuffle(array) {
 
 function assignRoles() {
     var players = [];
-    io.sockets.clients().forEach(function (socket) {
-        players.push(socket);
+    io.sockets.clients((error, sockets) => {
+        sockets.forEach(function (socket) {
+            players.push(socket);
+        });
     });
     players = shuffle(players);
 
     for (var i = 0; i < players.length; i++) {
         if (i <= playerRoles.length - 1) {
+            players[i].game_alive = true;
+            players[i].join('alive');
             players[i].join(playerRoles[i].role);
             players[i].join(playerRoles[i].group);
             players[i].emit('message', { message: 'You have been assigned the role of ' + playerRoles[i].role + '. You are part of the ' + playerRoles[i].group + '.' });
         } else {
+            players[i].game_alive = false;
             players[i].join('spectator');
             players[i].emit('message', { message: 'Since the roles are full, you have been assigned the role of spectator.' });
         }
@@ -49,7 +54,8 @@ function assignRoles() {
 }
 
 function killPlayer(socket) {
-    socket.game_dead = true;
+    socket.game_alive = false;
+    socket.leave('alive');
 
     if (state == 1) {
         io.sockets.emit('message', { message: socket.game_nickname + ' was killed in the night!' });
@@ -58,13 +64,26 @@ function killPlayer(socket) {
     }
 
     socket.emit('disableField', false);
-    socket.emit('displayVote', false);
+    socket.emit('displayVote', true);
+    socket.emit('disableVote', true);
 
     socket.leave('village');
     socket.leave('mafia');
     socket.join('spectator');
 }
 
+
+function endGame(winner) {
+    state = 3;
+    io.sockets.emit('header', { message: 'Game over' });
+    io.sockets.emit('announcement', { message: winner + ' wins the game!' }); 0
+    io.sockets.clients('alive', (error, sockets) => {
+        if (error) throw error;
+        sockets.forEach(function (socket) {
+            killPlayer(socket);
+        });
+    })
+}
 
 var endDay = false;
 
@@ -80,9 +99,9 @@ function dayLoop(duration, ticks) {
 
         io.sockets.in('mafia').emit('clearTargets');
         //asynchronous idiots here
-        io.sockets.clients((error, clients) => {
+        io.sockets.clients('village', (error, clients) => {
             if (error) throw error;
-            clients('village').forEach(function (socket) {
+            clients.forEach(function (socket) {
                 socket.emit('disableField', true);
                 socket.emit('displayVote', false);
                 io.sockets.in('mafia').emit('validTarget', socket.game_nickname);
@@ -106,28 +125,36 @@ function dayLoop(duration, ticks) {
 }
 
 function nightLoop(duration, ticks) {
+    var mafiaVictory = (io.sockets.clients('mafia') >= io.sockets.clients('village'));
     var ticksLeft = duration - ticks;
     if (ticksLeft) {
         io.sockets.emit('announcement', { message: 'Night ends in ' + ticksLeft + ' second(s)' });
         setTimeout(nightLoop, 1000, duration, ticks + 1);
+    } else if (mafiaVictory) {
+        endGame('Mafia');
     } else {
         dayCount++;
         io.sockets.emit('header', { message: 'Day ' + dayCount });
         io.sockets.emit('announcement', { message: 'It is now daytime' });
-        io.sockets.emit('disableField', false);
-        io.sockets.emit('displayVote', true);
-        io.sockets.emit('clearTargets');
+        // io.sockets.emit('disableField', false);
+        // io.sockets.emit('displayVote', true);
+        // io.sockets.emit('clearTargets');
         // asynchronus idiots here 
-        io.sockets.clients((error, clients) => {
+        io.sockets.clients('alive', (error, clients) => {
             if (error) throw error;
             clients.forEach(function (socket) {
-                io.sockets.emit('validTarget', socket.game_nickname);
+                io.sockets.in('alive').emit('validTarget', socket.game_nickname);
             });
         })
         var votingPlayers = [];
-        io.sockets.clients((error, clients) => {
+        io.sockets.clients('alive', (error, clients) => {
             if (error) throw error;
-            clients('mafia').forEach(function (socket) {
+            clients.forEach(function (socket) {
+                socket.emit('disableField', false);
+			    socket.emit('displayVote', true);
+
+ 		    	socket.emit('clearTargets');
+
                 votingPlayers.push(socket.game_nickname);
                 socket.game_voted = false;
             })
@@ -196,30 +223,38 @@ var votes = [];
 
 function checkVotes() {
     var votedFlag = true;
-    //asynchronous idiots here
+    //asynchronous idiots here  io.sockets.clients('mafia').forEach(function (socket) {
     if (state == 1) {
-        io.sockets.clients('mafia').forEach(function (socket) {
-            if (!socket.game_voted) {
-                votedFlag = false;
-            }
+        io.sockets.clients('mafia', (error, sockets) => {
+            if (error) throw error;
+            sockets.forEach(function (socket) {
+                if (!socket.game_voted) {
+                    votedFlag = false;
+                }
+            });
         });
     } else if (state == 2) {
-        io.sockets.clients().forEach(function (socket) {
-            if (!socket.game_voted) {
-                votedFlag = false;
-            }
-        });
+        io.sockets.clients('alive', (error, sockets) => {
+            if (error) throw error;
+            sockets.forEach(function (socket) {
+                if (!socket.game_voted) {
+                    votedFlag = false;
+                }
+            });
+        })
     }
 
     if (votedFlag) {
         endDay = true;
         var results = countVotes(votes);
-		io.sockets.clients().forEach(function (socket) {
-			if (socket.game_nickname == results[0].username) {
-				killPlayer(socket);
-			}
-		});
-		votes = [];
+        io.sockets.clients((error, sockets) => {
+            sockets.forEach(function (socket) {
+                if (socket.game_nickname == results[0].username) {
+                    killPlayer(socket);
+                }
+            });
+        })
+        votes = [];
     }
 }
 
@@ -238,7 +273,7 @@ module.exports = {
 
         var numClients = lengthy;//validClients.length; //=0
         var reqPlayers = playerRoles.length;
-        console.log(reqPlayers, lengthy);
+        // console.log(reqPlayers, lengthy);
 
         if (numClients >= reqPlayers) {
             io.sockets.emit('announcement', { message: 'Required number of players reached' });
@@ -250,8 +285,11 @@ module.exports = {
         io.sockets.emit('header', { message: 'Pre-game Lobby' });
     },
     filterMessage: function (socket, data) {
-        if (state == 1) {
-            var clientRooms = io.sockets.manager.roomClients[socket.id];
+        var clientRooms = io.sockets.manager.roomClients[socket.id];
+        if (clientRooms['/spectator'] || !socket.game_alive) {
+            data.message = '<font color="red">' + data.message + '</font>';
+            io.sockets.in('spectator').emit('message', data);
+        } else if (state == 1) {
             if (clientRooms['/mafia']) {
                 io.sockets.in('mafia').emit('message', data);
             }
