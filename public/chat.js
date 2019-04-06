@@ -1,6 +1,6 @@
 $(document).ready(function() {
 	var messages = [];
-	var socket = io.connect('http://localhost:8080');
+	var socket = io.connect('http://'+location.host);
 	var field = document.getElementById("field");
 	var sendButton = document.getElementById("send");
 	var content = document.getElementById("content");
@@ -16,10 +16,15 @@ $(document).ready(function() {
 				console.log(messages[i]);
 			}
 			content.innerHTML = html;
+			$("#content").scrollTop($("#content")[0].scrollHeight);
 		} else {
 			console.log("There is a problem:", data);
 		}
 	});
+
+	socket.on('announcement', function (data) {
+		announcement.innerHTML = '<h1>' + data.message + '</h1>';
+	})
 
      $("#field").keyup(function(e) {
         if(e.keyCode == 13) {
