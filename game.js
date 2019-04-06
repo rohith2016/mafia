@@ -151,9 +151,9 @@ function nightLoop(duration, ticks) {
             if (error) throw error;
             clients.forEach(function (socket) {
                 socket.emit('disableField', false);
-			    socket.emit('displayVote', true);
+                socket.emit('displayVote', true);
 
- 		    	socket.emit('clearTargets');
+                socket.emit('clearTargets');
 
                 votingPlayers.push(socket.game_nickname);
                 socket.game_voted = false;
@@ -261,7 +261,7 @@ function checkVotes() {
 module.exports = {
     checkNumPlayers: function () {
         var validClients = null;
-        var lengthy = null;
+        var lengthy = 0;
         io.sockets.clients((error, clients) => {
             if (error) throw error;
             lengthy = clients.length;
@@ -269,19 +269,30 @@ module.exports = {
             validClients = clients.filter(function (socket) {
                 return (socket.game_nickname);
             })
+            var numClients = lengthy;//validClients.length; //=0
+            var reqPlayers = playerRoles.length;
+            console.log(reqPlayers, lengthy);
+
+            if (numClients >= reqPlayers) {
+                io.sockets.emit('announcement', { message: 'Required number of players reached' });
+                startingCountdownTimer = setTimeout(startingCountdown, 1000, 10, 0);
+            } else {
+                io.sockets.emit('announcement', { message: 'Waiting on ' + (reqPlayers - numClients) + ' more players' });
+                clearTimeout(startingCountdownTimer);
+            }
         });
 
-        var numClients = lengthy;//validClients.length; //=0
-        var reqPlayers = playerRoles.length;
-        // console.log(reqPlayers, lengthy);
+        // var numClients = lengthy;//validClients.length; //=0
+        // var reqPlayers = playerRoles.length;
+        //  console.log(reqPlayers, lengthy);
 
-        if (numClients >= reqPlayers) {
-            io.sockets.emit('announcement', { message: 'Required number of players reached' });
-            startingCountdownTimer = setTimeout(startingCountdown, 1000, 10, 0);
-        } else {
-            io.sockets.emit('announcement', { message: 'Waiting on ' + (reqPlayers - numClients) + ' more players' });
-            clearTimeout(startingCountdownTimer);
-        }
+        // if (numClients >= reqPlayers) {
+        //     io.sockets.emit('announcement', { message: 'Required number of players reached' });
+        //     startingCountdownTimer = setTimeout(startingCountdown, 1000, 10, 0);
+        // } else {
+        //     io.sockets.emit('announcement', { message: 'Waiting on ' + (reqPlayers - numClients) + ' more players' });
+        //     clearTimeout(startingCountdownTimer);
+        // }
         io.sockets.emit('header', { message: 'Pre-game Lobby' });
     },
     filterMessage: function (socket, data) {
