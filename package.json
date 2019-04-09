@@ -16,7 +16,7 @@
     "express-session": "^1.15.6",
     "pug": "^2.0.3",
     "pusher": "^2.2.0",
-    "socket.io": "^2.2.0",
+    "socket.io": "^1.7.3",
     "underscore": "^1.9.1"
   }
 }
