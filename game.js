@@ -159,7 +159,7 @@ function countedVotes(arr) {
 
     for (var i = 0; i < a.length; i++) {
         results.push({ 'username': a[i], 'votes': b[i] });
-    };
+    }
 
     results.sort(function (a, b) {
         return (b.votes - a.votes);
