@@ -1,6 +1,6 @@
-$(document).ready(function () {
+$(document).ready(function() {
 	var messages = [];
-	var socket = io.connect('http://' + location.host);
+	var socket = io.connect('http://'+location.host);
 	var field = document.getElementById("field");
 	var sendButton = document.getElementById("send");
 	var nameButton = document.getElementById("nick");
@@ -8,10 +8,10 @@ $(document).ready(function () {
 	var name = document.getElementById("name");
 
 	socket.on('message', function (data) {
-		if (data.message) {
+		if(data.message) {
 			messages.push(data);
 			var html = '';
-			for (var i = 0; i < messages.length; i++) {
+			for(var i=0; i<messages.length; i++) {
 				html += '<b>' + (messages[i].username ? messages[i].username : 'Server') + ': </b>';
 				html += messages[i].message + '<br />';
 			}
@@ -69,26 +69,30 @@ $(document).ready(function () {
 	});
 
 	socket.on('playerVote', function (data) {
-		document.getElementById(data.username + "_vote").innerHTML = data.message;
-	});
-
-	var validTargets = [];
-	socket.on('validTarget', function (data) {
-		validTargets.push(data);
-		var html = '';
-		for (var i = 0; i < validTargets.length; i++) {
-			html += '<option>' + validTargets[i] + '</option>';
+		var element = document.getElementById(data.username + "_vote");
+		if (data.message) {
+			element.innerHTML = data.message;
+		} else {
+			element.innerHTML = 'no one';
 		}
-		select.innerHTML = html;
-	}); //may be able to optimize this function with HTML Select add() and remove() methods
-
-	socket.on('clearTargets', function () {
-		validTargets = [];
-		select.innerHTML = '';
 	});
 
-	$("#field").keyup(function (e) {
-		if (e.keyCode == 13) {
+	socket.on('validTarget', function (data) {
+		var option = document.createElement("option");
+		option.value = option.innerHTML = data;
+		select.add(option, select.length - 1);
+	});
+
+	var blankOption = document.createElement("option");
+	blankOption.innerHTML = 'no one';
+	blankOption.value = '';
+	socket.on('clearTargets', function () {
+		select.innerHTML = '';
+		select.add(blankOption);
+	});
+
+	$("#field").keyup(function(e) {
+		if(e.keyCode == 13) {
 			sendMessage();
 		}
 	});
@@ -97,17 +101,17 @@ $(document).ready(function () {
 		alert(data.message);
 	});
 
-	sendButton.onclick = sendMessage = function () {
+	sendButton.onclick = sendMessage = function() {
 		var text = field.value;
 		socket.emit('send', { message: text });
 		field.value = "";
 	};
 
-	nameButton.onclick = function () {
+	nameButton.onclick = function() {
 		socket.emit('changeNick', name.value);
 	};
 
-	vote.onclick = function () {
+	vote.onclick = function() {
 		socket.emit('vote', { message: select.value });
 	};
 });
