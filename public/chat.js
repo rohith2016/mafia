@@ -14,7 +14,6 @@ $(document).ready(function () {
 			for (var i = 0; i < messages.length; i++) {
 				html += '<b>' + (messages[i].username ? messages[i].username : 'Server') + ': </b>';
 				html += messages[i].message + '<br />';
-				//console.log(messages[i]);
 			}
 			content.innerHTML = html;
 			$("#content").scrollTop($("#content")[0].scrollHeight);
@@ -65,11 +64,11 @@ $(document).ready(function () {
 		var html = '';
 		for (var i = 0; i < data.length; i++) {
 			html += '<b>' + data[i] + '</b> votes for <b id="' + data[i] + '_vote"></b><br>';
-		};
+		}
 		votingPlayers.innerHTML = html;
 	});
 
- 	socket.on('playerVote', function (data) {
+	socket.on('playerVote', function (data) {
 		document.getElementById(data.username + "_vote").innerHTML = data.message;
 	});
 
@@ -81,7 +80,7 @@ $(document).ready(function () {
 			html += '<option>' + validTargets[i] + '</option>';
 		}
 		select.innerHTML = html;
-	});
+	}); //may be able to optimize this function with HTML Select add() and remove() methods
 
 	socket.on('clearTargets', function () {
 		validTargets = [];
@@ -95,20 +94,20 @@ $(document).ready(function () {
 	});
 
 	socket.on('alert', function (data) {
-    	alert(data.message);
-    });
+		alert(data.message);
+	});
 
 	sendButton.onclick = sendMessage = function () {
 		var text = field.value;
-		socket.emit('send', { message: text});
-		field.value="";
+		socket.emit('send', { message: text });
+		field.value = "";
 	};
 
-	nameButton.onclick = function() {
+	nameButton.onclick = function () {
 		socket.emit('changeNick', name.value);
 	};
 
-	vote.onclick = function() {
+	vote.onclick = function () {
 		socket.emit('vote', { message: select.value });
 	};
 });

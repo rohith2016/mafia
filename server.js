@@ -14,21 +14,22 @@ app.get("/", function (req, res) {
 app.use(express.static(__dirname + '/public'));
 
 io = require('socket.io').listen(app.listen(port));
-io.set('log level', 2);
 console.log("Listening on port " + port);
+
+io.set('log level', 2);
+
 var debug = false;
 if (process.argv.indexOf('debug') != -1) {
     debug = true;
     io.set('log level', 3);
 }
 
-
 io.sockets.on('connection', function (socket) {
-    socket.join('room1');
     socket.emit('message', { message: 'Welcome to the lobby.' });
     socket.broadcast.emit('message', { message: 'A new client has connected.' });
 
     socket.game_alive = false;
+
     if (!debug) {
         if (!game.state()) {
             socket.emit('message', { message: 'Please pick a nickname to register as a player.' });
@@ -36,20 +37,21 @@ io.sockets.on('connection', function (socket) {
         } else {
             socket.emit('message', { message: 'The game you are trying to join has already started.' });
         }
-    }else{
+    } else {
         socket.game_nickname = socket.id;
-		socket.emit('hideNameField');
-		if(!game.state()){
-			game.checkNumPlayers();
-		}
+        socket.emit('hideNameField');
+        if (!game.state()) {
+            game.checkNumPlayers();
+        }
     }
 
     socket.on('disconnect', function () {
         if (socket.game_nickname) {
-			io.sockets.emit('message', { message: socket.game_nickname + ' has disconnected.' });
-		} else {
-			io.sockets.emit('message', { message: 'A client has disconnected.' });
-		}
+            io.sockets.emit('message', { message: socket.game_nickname + ' has disconnected.' });
+        } else {
+            io.sockets.emit('message', { message: 'A client has disconnected.' });
+        }
+
         if (!game.state()) {
             setTimeout(function () {
                 game.checkNumPlayers();
@@ -71,19 +73,16 @@ io.sockets.on('connection', function (socket) {
     });
 
     socket.on('vote', function (data) {
-        //pass the vote along
         game.vote(socket, data);
     });
 
     socket.on('changeNick', function (data) {
         if (data && !socket.game_nickname) {
             var isUnique = true;
-            io.sockets.clients((error, clients) => {
-                clients.forEach(function (socket) {
-                    if (data == socket.game_nickname) { //custom properties prefixed with game_ so as to not cause collisions
-                        isUnique = false;
-                    }
-                })
+            io.sockets.clients().forEach(function (socket) {
+                if (data == socket.game_nickname) { //custom properties prefixed with game_ so as to not cause collisions
+                    isUnique = false;
+                }
             });
 
             if (isUnique) {
@@ -92,13 +91,11 @@ io.sockets.on('connection', function (socket) {
                 if (!game.state()) {
                     game.checkNumPlayers();
                 }
-            }
-            else {
+            } else {
                 socket.emit('alert', { message: 'Nickname is not unique.' });
             }
         } else {
             socket.emit('alert', { message: 'Nickname is not valid.' });
         }
     });
-
 });
